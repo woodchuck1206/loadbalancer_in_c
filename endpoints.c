@@ -15,6 +15,10 @@
 #define ENDPOINT "./endpoints"
 #define URI_LENGTH 256
 
+void pass_request(struct EndpointList *start, char *send_buffer, char *recv_buffer, int *cur) {
+
+}
+
 void parse_uri(struct Uri *target, char *payload) {
 	target->size = 0;
 	int first_space = -1;

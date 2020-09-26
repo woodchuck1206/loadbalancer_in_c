@@ -1,3 +1,8 @@
+struct Buffer {
+	char *buf;
+	int size;
+};
+
 struct Uri {
 	char *uri;
 	int size;
