@@ -1,13 +1,14 @@
 struct Endpoint {
-	char host[];
 	int port;
-	int active;
+	char active;
+	char *host;
 };
 
 struct EndpointList {
-	struct Endpoint ep;
-	struct Endpoint *next;
-}
+	struct Endpoint *ep;
+	struct EndpointList *next;
+};
 
-void ping_endpoint(struct EndpointList *epl);
-void update_endpoint(struct EndpointList *epl);
+char ping_endpoint(struct EndpointList *target); // ret value 0 for invalid endpoints, 1 for valid
+void update_endpoint_status(struct EndpointList *epl);
+void load_endpoint(struct EndpointList *epl);
