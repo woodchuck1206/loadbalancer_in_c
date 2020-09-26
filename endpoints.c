@@ -13,6 +13,32 @@
 #include "endpoints.h"
 
 #define ENDPOINT "./endpoints"
+#define URI_LENGTH 256
+
+void parse_uri(struct Uri *target, char *payload) {
+	target->size = 0;
+	int first_space = -1;
+	int i = 0;
+	char ch;
+
+	while ((ch = *(payload + i)) != 0) {
+		if (ch == ' ') {
+			if (first_space == -1) {
+				first_space = i;
+			} else {
+				target->uri = payload+first_space+1;
+				target->size = i - first_space - 1;
+				break;
+			}
+		}
+		++i;
+	}
+	// IF URI NOT COPIED
+	// UNEXPECTED BEHAVIOUR WHEN URI_BUFFER'S SIZE IS EQUAL TO URI_LENGTH
+	if (target->size == 0) {
+		target->uri = NULL;
+	}
+}
 
 void load_endpoint(struct EndpointList *epl) {
 	FILE *fp = fopen(ENDPOINT, "r");
