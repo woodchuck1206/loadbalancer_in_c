@@ -73,6 +73,12 @@ int parse_uri_test_3() {
 	return 0;
 }
 
+int pass_request_test_1() {
+	// LEARNT WHEN NETWORK IO OR SOME OTHER MODULE IS INVOLVED, IT PROBABLY IS NOT THE BEST WAY TO TEST LIKE THIS
+	// SOME PYTHON SCRIPT OR TOOL WOULD BE HANDY HERE
+	return 0;
+}
+
 int verify_tests() {
 	_verify(ping_endpoint_test_1);
 	_verify(ping_endpoint_test_2);
