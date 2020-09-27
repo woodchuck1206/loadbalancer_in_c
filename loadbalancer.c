@@ -11,6 +11,7 @@ DISTRIBUTES REQUEST TO PREDEFINED ENDPOINTS ON ROUND ROBIN TERMS
 #include <netinet/in.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define COMMON_LIB
 
@@ -19,13 +20,21 @@ DISTRIBUTES REQUEST TO PREDEFINED ENDPOINTS ON ROUND ROBIN TERMS
 #define PORT 8888
 #define LOCALHOST "127.0.0.1"
 
+struct ThreadArgs {
+	int recv_sock;
+	struct Endpoint ep;
+};
+
+pthread_mutex_t mutx;
+struct Endpoint *start, *ep_cur;
+
+void *handle_conn(void *arg);
+
 int main() {
 	int server_fd;
 	struct sockaddr_in address;
 	int addrlen = sizeof(address);
-	int new_socket;
-	char valread;
-	int cur = 0;
+	pthread_t t_id;
 
 	// PRESET ENDPOINTS FOR TEST PURPOSES
 	struct Endpoint ep1, ep2;
@@ -40,8 +49,8 @@ int main() {
 	ep1.active = 1;
 	ep1.next = &ep2;
 
-	struct Endpoint *start = &ep1;
-	struct Endpoint *ep_cur = start;
+	start = &ep1;
+	ep_cur = start;
 
 	// TEST ENDPOINT SET UP
 
@@ -63,19 +72,32 @@ int main() {
 	printf("LISTENING TO PORT: %d\n\n", PORT);
 
 	while (1) {
-		if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+		struct ThreadArgs ta;
+		ta.ep = *ep_cur;
+
+		if ((ta.recv_sock = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
 			error_handling("ACCEPT ERROR");
-		printf("RECEIVED REQUEST FROM %s:%d, trying to pass onto %s:%d\n", inet_ntoa(address.sin_addr), address.sin_port, ep_cur->host, ep_cur->port);
-		if (pass_request(new_socket, ep_cur, start)) {
-			printf("FAILED TO PASS REQUEST TO %s:%d\n", ep_cur->host, ep_cur->port);
-			// FALLBACK TO BE IMPLEMENTED
-		}
+		printf("RECEIVED REQUEST FROM %s:%d, trying to pass onto %s:%d\n", inet_ntoa(address.sin_addr), address.sin_port, ta.ep.host, ta.ep.port);
+
+		pthread_create(&t_id, NULL, handle_conn, (void *)&ta);
+		pthread_detach(t_id);
+
+		pthread_mutex_lock(&mutx);
 		if (!(ep_cur->next))
 			ep_cur = start;
 		else
 			ep_cur = ep_cur->next;
-		close(new_socket);
+		pthread_mutex_unlock(&mutx);
 	}
 	return 0;
 }
 
+void *handle_conn(void *arg) {
+	struct ThreadArgs ta = *((struct ThreadArgs *)arg);
+
+	if (pass_request(ta.recv_sock, &(ta.ep), start)) {
+		printf("FAILED TO PASS REQUEST TO %s:%d\n", ta.ep.host, ta.ep.port);
+	}
+	
+	close(ta.recv_sock);
+}
