@@ -19,6 +19,7 @@ DISTRIBUTES REQUEST TO PREDEFINED ENDPOINTS ON ROUND ROBIN TERMS
 
 #define PORT 8888
 #define LOCALHOST "127.0.0.1"
+#define SEND_SOCK_LENGTH 1000
 
 struct ThreadArgs {
 	int recv_sock;
@@ -28,7 +29,12 @@ struct ThreadArgs {
 pthread_mutex_t mutx;
 struct Endpoint *start, *ep_cur;
 
+int send_sockets[SEND_SOCK_LENGTH];
+char send_status[SEND_SOCK_LENGTH];
+
 void *handle_conn(void *arg);
+void init_send_sock();
+int get_send_sock();
 
 int main() {
 	int server_fd;
@@ -53,6 +59,7 @@ int main() {
 	ep_cur = start;
 
 	// TEST ENDPOINT SET UP
+	init_send_sock();
 
 	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
 		error_handling("SOCKET ERROR");
@@ -66,7 +73,7 @@ int main() {
 	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
 		error_handling("BIND ERROR");
 
-	if (listen(server_fd, 1000) < 0)
+	if (listen(server_fd, 10) < 0)
 		error_handling("LISTEN ERROR");
 
 	printf("LISTENING TO PORT: %d\n\n", PORT);
@@ -79,25 +86,40 @@ int main() {
 			error_handling("ACCEPT ERROR");
 		printf("RECEIVED REQUEST FROM %s:%d, trying to pass onto %s:%d\n", inet_ntoa(address.sin_addr), address.sin_port, ta.ep.host, ta.ep.port);
 
+		pthread_mutex_lock(&mutx);
+		int send_sock_idx = get_send_sock_idx();		
+		pthread_mutex_unlock(&mutx);
+
 		pthread_create(&t_id, NULL, handle_conn, (void *)&ta);
 		pthread_detach(t_id);
 
-		pthread_mutex_lock(&mutx);
 		if (!(ep_cur->next))
 			ep_cur = start;
 		else
 			ep_cur = ep_cur->next;
-		pthread_mutex_unlock(&mutx);
 	}
 	return 0;
 }
 
 void *handle_conn(void *arg) {
 	struct ThreadArgs ta = *((struct ThreadArgs *)arg);
-
+	
 	if (pass_request(ta.recv_sock, &(ta.ep), start)) {
 		printf("FAILED TO PASS REQUEST TO %s:%d\n", ta.ep.host, ta.ep.port);
 	}
 	
 	close(ta.recv_sock);
+}
+
+void init_send_sock() {
+	for (int i = 0; i < SEND_SOCK_LENGTH; i++) {
+		send_sockets[i] = socket(AF_INET, SOCK_STREAM, 0);
+		send_status[i] = 1;
+	}
+}
+
+int get_send_sock_idx() {
+	for (int i = 0; i < SEND_SOCK_LENGTH; i++) {
+		// to be implemented
+	}
 }
