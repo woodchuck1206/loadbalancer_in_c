@@ -10,6 +10,7 @@
 
 #endif
 
+#include <errno.h>
 #include "endpoints.h"
 
 #define ENDPOINT "./endpoints"
@@ -39,8 +40,10 @@ char pass_request(int recv_socket, struct Endpoint *cur, struct Endpoint *start)
 	target.sin_addr.s_addr = inet_addr(cur->host);
 	target.sin_port = htons(cur->port);
 	memset(&target.sin_zero, 0,sizeof(target.sin_zero));
-	if (connect(proxy_socket, (struct sockaddr *)&target, sizeof(target)) == -1)
+	if (connect(proxy_socket, (struct sockaddr *)&target, sizeof(target)) == -1) {
+		printf("ERROR NO: %d\n", errno);
 		return 1;
+	}
 	exchange_data(recv_socket, proxy_socket, buffer, sizeof(buffer));
 	close(proxy_socket);
 	return 0;
