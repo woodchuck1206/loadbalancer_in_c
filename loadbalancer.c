@@ -47,19 +47,10 @@ int main() {
 	pthread_t t_id;
 
 	// PRESET ENDPOINTS FOR TEST PURPOSES
-	struct Endpoint ep1, ep2;
+	struct Endpoint load;
+	load_endpoint(&load);
 
-	ep2.host = LOCALHOST;
-	ep2.port = 7777;
-	ep2.active = 1;
-	ep2.next = NULL;
-
-	ep1.host = LOCALHOST;
-	ep1.port = 6666;
-	ep1.active = 1;
-	ep1.next = &ep2;
-
-	start = &ep1;
+	start = &load;
 	ep_cur = start;
 
 	// TEST ENDPOINT SET UP

@@ -13,7 +13,7 @@
 #include <errno.h>
 #include "endpoints.h"
 
-#define ENDPOINT "./endpoints"
+#define ENDPOINT "./config"
 #define URI_LENGTH 256
 
 char pass_request(int recv_socket, struct Endpoint *cur, struct Endpoint *start) {
@@ -95,10 +95,26 @@ void parse_uri(struct Uri *target, char *payload) {
 void load_endpoint(struct Endpoint *ep) {
 	FILE *fp = fopen(ENDPOINT, "r");
 	char buffer[25] = {0};
-	
-	while (fgets(buffer, 25, fp) != NULL) {
-		// ADDR PARSER NOT IMPLEMENTED YET
-		memset(buffer, 0, 25);
+	struct Endpoint *cur = ep;
+	char flag = 0;
+
+	while (fgets(buffer, 25, fp)) {
+		if (flag) {
+			cur->next = (struct Endpoint *)malloc(sizeof(struct Endpoint));
+			cur = cur->next;
+		}  
+		int idx = 0;
+		while (buffer[idx] != '\t') {
+			++idx;
+		}
+		char *tmp = (char *)malloc(sizeof(char) * (idx+1));
+		memcpy(tmp, buffer, idx);
+		*(tmp+idx) = 0;
+		cur->host = tmp;
+		++idx;
+		cur->port = atoi(buffer+idx);
+		cur->active = 1;
+		flag = 1;
 	}
 	fclose(fp);
 }
