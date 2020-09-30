@@ -36,6 +36,8 @@ char pass_request(int recv_socket, struct Endpoint *cur, struct Endpoint *start)
 	if (!cur)
 		return 1;
 
+	printf("RECEIVED REQUEST, trying to pass onto %s:%d\n", cur->host, cur->port);
+
 	target.sin_family = AF_INET;
 	target.sin_addr.s_addr = inet_addr(cur->host);
 	target.sin_port = htons(cur->port);
@@ -125,9 +127,9 @@ void update_endpoint_status(struct Endpoint *ep) {
 
 	while (cur) {
 		if ((ping_result = ping_endpoint(cur)) & 1) {
-			ep->active = 1;
+			cur->active = 1;
 		} else {
-			ep->active = 0;
+			cur->active = 0;
 		}
 		cur = cur->next;
 	}

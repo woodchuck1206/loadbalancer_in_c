@@ -13,7 +13,7 @@ int ping_endpoint_test_1() {
 	// SET UP A LOCAL SERVER ON PORT 8888 BEFOREHAND!
 	struct Endpoint ep;
 	ep.host = "127.0.0.1";
-	ep.port = 8888;
+	ep.port = 9999;
 	ep.active = 1;
 
 	struct EndpointList epl;
@@ -27,7 +27,7 @@ int ping_endpoint_test_1() {
 int ping_endpoint_test_2() {
 	struct Endpoint ep;
 	ep.host = "127.0.0.1";
-	ep.port = 4444;
+	ep.port = 9999;
 	ep.active = 1;
 
 	struct EndpointList epl;

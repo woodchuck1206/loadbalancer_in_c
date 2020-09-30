@@ -31,7 +31,9 @@ struct ThreadArgs {
 
 // pthread_mutex_t mutx; // recv_sock_status does what semaphore would have done
 struct Endpoint *start, *ep_cur;
+int HEALTH_CHECK_INTERVAL = 15;
 
+void *timed_update_ep(void *arg);
 void *handle_conn(void *arg);
 int get_recv_sock_idx(char *recv_sock_status, int *recv_cursor);
 
@@ -72,6 +74,9 @@ int main() {
 
 	printf("LISTENING TO PORT: %d\n\n", PORT);
 
+	pthread_create(&t_id, NULL, timed_update_ep, (void *)&HEALTH_CHECK_INTERVAL);
+	pthread_detach(t_id);
+
 	while (1) {
 		if (errno > 0) 
 			printf("ERROR NO: %d\n", errno);
@@ -82,7 +87,6 @@ int main() {
 
 		if ((recv_socks[idx].recv_sock = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
 			error_handling("ACCEPT ERROR");
-		printf("RECEIVED REQUEST FROM %s:%d, trying to pass onto %s:%d\n", inet_ntoa(address.sin_addr), address.sin_port, recv_socks[idx].ep.host, recv_socks[idx].ep.port);
 
 		pthread_create(&t_id, NULL, handle_conn, (void *)&(recv_socks[idx]));
 		pthread_detach(t_id);
@@ -115,4 +119,14 @@ int get_recv_sock_idx(char *recv_sock_status, int *recv_cursor) {
 		}
 	}
 	return *recv_cursor;
+}
+
+void *timed_update_ep(void *arg) {
+	int sec = *((int *)arg);
+	printf("Checking on endpoints...\n");
+	
+	while (1) {
+		update_endpoint_status(start);
+		sleep(sec);
+	}
 }
