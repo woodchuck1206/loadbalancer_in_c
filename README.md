@@ -23,4 +23,7 @@ However, with little interval(0.0015s~) between requests, the lb does not seem t
 ### Done 1
 2020-09-28 Recv socket 변수의 스코프가 끝나고, 다음 스코프가 왔을 때, 아직 스레드가 끝나지 않았는데 동일한 주소를 공유하는 변수의 value가 바뀌어서 한 FD에 대한 Racing Condition이 발생했음.\
 Socket placeholder 배열을 생성하고 이 배열을 사용해서 recv socket을 관리하여 [Issue 1](#issue-1) 해결
- 
+
+## TO DO
+### Real Time Endpoint Update
+특정한 format을 따르는 요청을 보내면 엔드포인트를 재설정(추가/제거)한다.
