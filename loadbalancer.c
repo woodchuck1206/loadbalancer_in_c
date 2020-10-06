@@ -13,6 +13,7 @@ DISTRIBUTES REQUEST TO PREDEFINED ENDPOINTS ON ROUND ROBIN TERMS
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #define COMMON_LIB
 
@@ -36,6 +37,9 @@ struct Endpoint *start, *ep_cur;
 int HEALTH_CHECK_INTERVAL = 15;
 int UPDATE_INTERVAL = 1000;
 
+void substring(char *to, char *from, int left, int right);
+int find_idx(char *source, int size, char target);
+void setnonblocking(int sock);
 void update(char *buffer, struct Endpoint *start);
 void *update_endpoint(void *arg);
 void *timed_update_ep(void *arg);
@@ -105,6 +109,11 @@ int main() {
 	return 0;
 }
 
+void setnonblocking(int sock) {
+	int flag = fcntl(sock, F_GETFL, 0);
+	fcntl(sock, F_SETFL, flag | O_NONBLOCK);
+}
+
 void *handle_conn(void *arg) {
 	struct ThreadArgs ta = *((struct ThreadArgs *)arg);
 	if (pass_request(ta.recv_sock, &(ta.ep), start)) {
@@ -140,7 +149,7 @@ void *timed_update_ep(void *arg) {
 void *update_endpoint(void *arg) {
 	int interval = *(int *)arg;
 
-	int update_socket = socket(AF_INET, SOCK_STREAM, 0);
+	int update_socket = socket(AF_INET, SOCK_STREAM, 0), conn_sock;
 	struct sockaddr_in address;
 	int addr_len = sizeof(address);
 
@@ -153,7 +162,7 @@ void *update_endpoint(void *arg) {
 
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = INADDR_ANY;
-	address.sin_port = UPDATE_PORT;
+	address.sin_port = htons(UPDATE_PORT);
 
 	memset(address.sin_zero, 0, sizeof(address.sin_zero));
 
@@ -183,11 +192,27 @@ void *update_endpoint(void *arg) {
 	while (1) {
 		event_count = epoll_wait(epoll_fd, events, 30, interval);
 		for (int i = 0; i < event_count; i++) {
-			accept(update_socket, (struct sockaddr *)&recv_addr, recv_addr_len);
-			// Little bit confused here by the nature of epoll behaviour, to be continued tomorrow
-			memset(buffer, 0, 30);
-			read(events[i].data.fd, buffer, 30);
-			update(buffer, start);
+			if (events[i].data.fd == update_socket) {
+				conn_sock = accept(update_socket, (struct sockaddr *)&recv_addr, (socklen_t *)&recv_addr_len);
+
+				setnonblocking(conn_sock);
+				memset(&event, 0, sizeof(event));
+				event.events = EPOLLIN | EPOLLET;
+				event.data.fd = conn_sock;
+				epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn_sock, &event);
+			} else {
+				conn_sock = events[i].data.fd;
+				memset(buffer, 0, 30);
+				int n = read(events[i].data.fd, buffer, 30);
+				if (n <= 0) {
+					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn_sock, &event);
+					close(conn_sock);
+				} else {
+					printf("Received %s\n", buffer);
+					update(buffer, start);
+					write(conn_sock, "FINISHED\n", 9);
+				}
+			}
 		}
 	}
 
@@ -198,45 +223,31 @@ void *update_endpoint(void *arg) {
 void update(char *buffer, struct Endpoint *start) {
 	char flag = -1; // 0 for add, 1 for del
 	char method[4] = {0, };
-	char *host;
+	char *host, *port_str;
 	int port;
-	char *port_str;
-	int idx = 4, before = -1;
 
 	memcpy(method, buffer, 3);
-	
 	if (strcmp(method, "ADD") == 0)
 		flag = 0;
-	else if (strcmp(method, "DEL"))
+	else if (strcmp(method, "DEL") == 0)
 		flag = 1;
 
-	if (flag == -1)
+	if (flag == -1) {
 		printf("%s is not a valid method. It should be either ADD or DEL\n", method);
 		return;
-
-	while (1) {
-		if (*(buffer + idx) == '\t' || *(buffer + idx) == 0) {
-			if (before == -1) {
-				host = (char *)malloc(sizeof(char) * (idx - 3));
-				for (int i = 0; i < idx - 4; i++) {
-					*(host + i) = *(buffer + 4 + i);
-				}
-				*(host + idx - 4) = 0;
-				before = idx + 1;
-			} else {
-				port_str = (char *)malloc(sizeof(char) * (idx - before + 1));
-				for (int i = 0; i < idx - before; i++) {
-					*(port_str + i) = *(buffer + before + i);
-				}
-				*(port_str + idx - before) = 0;
-				port = atoi(port_str);
-				break;
-			}
-		}
-		++idx;
 	}
 
-	while (1) {
+	int second_tab = find_idx(buffer + 4, 25, '\t');
+	int semicolon = find_idx(buffer + 4, 25, ';');
+
+	host = (char *)malloc(sizeof(char) * (second_tab - 3));
+	substring(host, buffer+4, 0, second_tab-1);
+	port_str = (char *)malloc(sizeof(char) * (semicolon - second_tab));
+	substring(port_str, buffer+4, second_tab+1, semicolon-1);
+	port = atoi(port_str);
+
+	if (flag == 0) {
+		while (1) {
 		if (start->host == host && start->port == port) {
 			break;
 		}
@@ -250,5 +261,37 @@ void update(char *buffer, struct Endpoint *start) {
 		}
 
 		start = start->next;
-	}	
+		}
+	} else {
+		while (1) {
+		if (start->host == host && start->port == port) {
+			start->active = 0; // to reallocate start to start + 1, a little bit of change of the function structure is needed
+		}
+
+		if (!(start->next)) {
+			break;
+		}
+
+		start = start->next;
+		}
+	}
+		
+}
+
+int find_idx(char *source, int size, char target) {
+	for (int i = 0; i < size; i++) {
+		if (*(source+i) == target) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void substring(char *to, char *from, int left, int right) {
+	int size = right - left + 1, i = 0;
+	while (i < size) {
+		*(to+i) = *(from+i+left);
+		++i;
+	}
+	*(to+i) = 0;
 }
