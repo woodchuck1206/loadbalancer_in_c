@@ -32,5 +32,8 @@ Real Time Endpoint Update API 추가, 하지만 start의 가장 앞에 수정하
 특정한 format을 따르는 요청을 보내면 엔드포인트를 재설정(추가/제거)한다.
 Format/Designated Port
 Format 
+
     ADD 127.0.0.1   9876    //Tab으로 나눠진 RAW TEXT
     DEL 127.0.0.1   9876    //Method/HOST/PORT로 나뉜다. 이미 존재하는 엔드포인트를 추가 / 없는 엔드포인트를 제거 요청은 무시한다.
+
+
