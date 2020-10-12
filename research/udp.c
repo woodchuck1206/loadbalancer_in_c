@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/epoll.h>
+// #include <sys/epoll.h>
 
 int main() {
     int serv_sock;
@@ -20,7 +21,6 @@ int main() {
     serv_addr.sin_port = htons(7777);
 
     bind(serv_sock, (struct sockaddr *)&serv_addr, (socklen_t)serv_addrlen);
-    listen(serv_sock, 100);
 
     int cli_sock;
     struct sockaddr_in cli_addr = {0,};
@@ -28,13 +28,9 @@ int main() {
     int val;
 
 	while (1) {
-		if ((cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addrlen)) > 0) {
-            val = read(cli_sock, buff, 1024);
-            if (val > 0) {
-                printf("Read\n\n%s\n", buff);
-            }
-            close(cli_sock);
-        }
+        printf("receiving...\n");
+		recv(serv_sock, buff, 1024, 0);
+        printf("\n%s\n", buff);
     }
     close(serv_sock);
     
